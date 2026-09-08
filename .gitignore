@@ -1,0 +1,8 @@
+# Local Netlify folder
+.netlify
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+node_modules/
