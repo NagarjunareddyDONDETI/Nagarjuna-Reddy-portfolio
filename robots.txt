@@ -1,0 +1,5 @@
+# robots.txt for Nagarjuna Reddy Dondeti Portfolio
+User-agent: *
+Allow: /
+
+Sitemap: https://nagarjunareddy-portfolio.onrender.com/sitemap.xml

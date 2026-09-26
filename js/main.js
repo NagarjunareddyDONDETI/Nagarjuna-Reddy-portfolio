@@ -201,6 +201,175 @@
     });
   }
 
+  /* ---------- Privacy-Conscious Telemetry Dispatcher ---------- */
+  function trackEvent(eventName, params) {
+    if (navigator.doNotTrack === "1" || window.doNotTrack === "1") return;
+    if (typeof window.gtag === "function") {
+      window.gtag("event", eventName, params || {});
+    }
+  }
+
+  /* ---------- Interactive Contact Form ---------- */
+  function initContactForm() {
+    const form = document.getElementById("contactForm");
+    if (!form) return;
+
+    const submitBtn = document.getElementById("formSubmitBtn");
+    const statusBox = document.getElementById("formStatus");
+    const nameInput = document.getElementById("formName");
+    const emailInput = document.getElementById("formEmail");
+    const subjectInput = document.getElementById("formSubject");
+    const messageInput = document.getElementById("formMessage");
+    const honeyInput = form.querySelector('input[name="_honey"]');
+
+    const errors = {
+      name: document.getElementById("nameError"),
+      email: document.getElementById("emailError"),
+      subject: document.getElementById("subjectError"),
+      message: document.getElementById("messageError")
+    };
+
+    function clearErrors() {
+      [nameInput, emailInput, subjectInput, messageInput].forEach((input) => {
+        if (input) input.classList.remove("is-invalid");
+      });
+      Object.values(errors).forEach((errEl) => {
+        if (errEl) {
+          errEl.textContent = "";
+          errEl.classList.remove("is-visible");
+        }
+      });
+      if (statusBox) {
+        statusBox.className = "form-status";
+        statusBox.innerHTML = "";
+      }
+    }
+
+    function setFieldError(input, errorEl, message) {
+      if (input) input.classList.add("is-invalid");
+      if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.classList.add("is-visible");
+      }
+    }
+
+    // Clear error on input
+    [nameInput, emailInput, subjectInput, messageInput].forEach((input) => {
+      if (!input) return;
+      input.addEventListener("input", () => {
+        input.classList.remove("is-invalid");
+        const key = input.name;
+        if (errors[key]) {
+          errors[key].textContent = "";
+          errors[key].classList.remove("is-visible");
+        }
+      });
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clearErrors();
+
+      // Bot honeypot check
+      if (honeyInput && honeyInput.value) {
+        if (statusBox) {
+          statusBox.className = "form-status form-status--success";
+          statusBox.textContent = "Thank you! Your message has been sent.";
+        }
+        form.reset();
+        return;
+      }
+
+      let isValid = true;
+      let firstInvalid = null;
+
+      // Validate name
+      const nameVal = nameInput ? nameInput.value.trim() : "";
+      if (!nameVal || nameVal.length < 2) {
+        setFieldError(nameInput, errors.name, "Please provide your name (at least 2 characters).");
+        isValid = false;
+        if (!firstInvalid) firstInvalid = nameInput;
+      }
+
+      // Validate email
+      const emailVal = emailInput ? emailInput.value.trim() : "";
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailVal || !emailRegex.test(emailVal)) {
+        setFieldError(emailInput, errors.email, "Please provide a valid email address.");
+        isValid = false;
+        if (!firstInvalid) firstInvalid = emailInput;
+      }
+
+      // Validate subject
+      const subjectVal = subjectInput ? subjectInput.value.trim() : "";
+      if (!subjectVal || subjectVal.length < 3) {
+        setFieldError(subjectInput, errors.subject, "Please provide a subject (at least 3 characters).");
+        isValid = false;
+        if (!firstInvalid) firstInvalid = subjectInput;
+      }
+
+      // Validate message
+      const messageVal = messageInput ? messageInput.value.trim() : "";
+      if (!messageVal || messageVal.length < 10) {
+        setFieldError(messageInput, errors.message, "Please provide a message (at least 10 characters).");
+        isValid = false;
+        if (!firstInvalid) firstInvalid = messageInput;
+      }
+
+      if (!isValid) {
+        if (firstInvalid) firstInvalid.focus();
+        return;
+      }
+
+      // Loading state
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add("is-loading");
+      }
+
+      const payload = {
+        name: nameVal,
+        email: emailVal,
+        _subject: subjectVal,
+        message: messageVal,
+        _template: "table"
+      };
+
+      try {
+        const response = await fetch(form.action, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          form.reset();
+          if (statusBox) {
+            statusBox.className = "form-status form-status--success";
+            statusBox.innerHTML = "<strong>Message sent successfully!</strong> Thank you for reaching out — I'll get back to you shortly.";
+          }
+          trackEvent("contact_form_submit", { status: "success" });
+        } else {
+          throw new Error(`Server responded with status ${response.status}`);
+        }
+      } catch (err) {
+        if (statusBox) {
+          statusBox.className = "form-status form-status--error";
+          statusBox.innerHTML = `Could not send message automatically. Please write directly to <a href="mailto:nagarjuna.dondeti@sasi.ac.in" style="text-decoration:underline;color:inherit;font-weight:600;">nagarjuna.dondeti@sasi.ac.in</a>.`;
+        }
+        trackEvent("contact_form_submit", { status: "error" });
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.classList.remove("is-loading");
+        }
+      }
+    });
+  }
+
   /* ---------- Init ---------- */
   document.addEventListener("DOMContentLoaded", () => {
     runLoader();
@@ -210,5 +379,6 @@
     coverParallax();
     mediaFallback();
     logoFallback();
+    initContactForm();
   });
 })();
